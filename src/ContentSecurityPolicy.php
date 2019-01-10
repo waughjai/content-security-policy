@@ -10,27 +10,28 @@ namespace WaughJ\ContentSecurityPolicy
 		public function __construct( array $args = [], bool $default_self = true )
 		{
 			$this->settings = [];
+			$this->default_self = $default_self;
 
 			$default_value = ( $default_self ) ? [ "'self'" ] : [];
-			foreach( self::TYPES as $default_key )
-			{
-				$this->settings[ $default_key ] = new UniqueValuesArray( $default_value );
-			}
-
 			foreach ( $args as $arg_key => $arg_value )
 			{
 				if ( in_array( $arg_key, self::TYPES ) )
 				{
-					if ( gettype( $arg_value ) === 'string' )
-					{
-						$arg_value = explode( ' ', $arg_value );
-					}
-					else if ( is_a( $arg_value, UniqueValuesArray::class ) )
-					{
-						$arg_value = $arg_value->getList();
-					}
+					$this->settings[ $arg_key ] = new UniqueValuesArray( $default_value );
 
-					$this->settings[ $arg_key ] = $this->settings[ $arg_key ]->addList( array_merge( $this->settings[ $arg_key ]->getList(), $arg_value ) );
+					if ( in_array( $arg_key, self::TYPES ) )
+					{
+						if ( gettype( $arg_value ) === 'string' )
+						{
+							$arg_value = explode( ' ', $arg_value );
+						}
+						else if ( is_a( $arg_value, UniqueValuesArray::class ) )
+						{
+							$arg_value = $arg_value->getList();
+						}
+
+						$this->settings[ $arg_key ] = $this->settings[ $arg_key ]->addList( array_merge( $this->settings[ $arg_key ]->getList(), $arg_value ) );
+					}
 				}
 			}
 		}
@@ -50,14 +51,17 @@ namespace WaughJ\ContentSecurityPolicy
 			$lines = [];
 			foreach ( $this->settings as $setting => $setting_value )
 			{
-				$lines[] = $this->getHeaderLine( $setting );
+				if ( !empty( $setting_value->getList() ) )
+				{
+					$lines[] = $this->getHeaderLine( $setting );
+				}
 			}
 			return implode( '; ', $lines );
 		}
 
 		public function getHeaderLine( string $type ) : string
 		{
-			return ( array_key_exists( $type, $this->settings ) )
+			return ( !empty( $this->settings[ $type ]->getList() ) )
 				? implode( ' ', array_merge( [ $type ], $this->settings[ $type ]->getList() ) )
 				: '';
 		}
@@ -69,56 +73,53 @@ namespace WaughJ\ContentSecurityPolicy
 
 		public function addItemToSrc( string $source_type, string $new_item ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			$settings[ $source_type ] = $settings[ $source_type ]->add( $new_item );
-			return new ContentSecurityPolicy( $settings, false );
+			return $this->changeItemToSrc( 'add', 'string', $source_type, $new_item );
 		}
 
 		public function removeItemToSrc( string $source_type, string $remove_item ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			$settings[ $source_type ] = $settings[ $source_type ]->remove( $remove_item );
-			return new ContentSecurityPolicy( $settings, false );
+			return $this->changeItemToSrc( 'remove', 'string', $source_type, $remove_item );
 		}
 
 		public function addListToSrc( string $source_type, array $add_list ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			$settings[ $source_type ] = $settings[ $source_type ]->addList( $add_list );
-			return new ContentSecurityPolicy( $settings, false );
+			return $this->changeItemToSrc( 'addList', 'array', $source_type, $add_list );
 		}
 
 		public function removeListToSrc( string $source_type, array $remove_list ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			$settings[ $source_type ] = $settings[ $source_type ]->removeList( $remove_list );
-			return new ContentSecurityPolicy( $settings, false );
+			return $this->changeItemToSrc( 'removeList', 'array', $source_type, $remove_list );
 		}
 
-		public function addMap( array $add_map ) : ContentSecurityPolicy
+		public function addMap( array $change_map ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			foreach ( $add_map as $key => $value )
-			{
-				if ( array_key_exists( $key, $settings ) )
+			return $this->changeMap
+			(
+				$change_map,
+				$function = function( UniqueValuesArray $setting, array $value )
 				{
-					$settings[ $key ] = $settings[ $key ]->addList( $value );
-				}
-			}
-			return new ContentSecurityPolicy( $settings, false );
+					$setting = $setting->addList( $value );
+					if ( $this->default_self )
+					{
+						$setting = $setting->add( "'self'" );
+					}
+					return $setting;
+				},
+				$this->default_self
+			);
 		}
 
-		public function removeMap( array $remove_map ) : ContentSecurityPolicy
+		public function removeMap( array $change_map ) : ContentSecurityPolicy
 		{
-			$settings = $this->settings;
-			foreach ( $remove_map as $key => $value )
-			{
-				if ( array_key_exists( $key, $settings ) )
+			return $this->changeMap
+			(
+				$change_map,
+				function( UniqueValuesArray $setting, array $value )
 				{
-					$settings[ $key ] = $settings[ $key ]->removeList( $value );
-				}
-			}
-			return new ContentSecurityPolicy( $settings, false );
+					return $setting->removeList( $value );
+				},
+				false
+			);
 		}
 
 		public function addUnsafeInline( string $source_type ) : ContentSecurityPolicy
@@ -131,14 +132,58 @@ namespace WaughJ\ContentSecurityPolicy
 			return $this->removeItemToSrc( $source_type, "'unsafe-inline'" );
 		}
 
+		private function changeItemToSrc( string $function_name, string $variable_type, string $source_type, $change_item ) : ContentSecurityPolicy
+		{
+			assert( gettype( $change_item ) === $variable_type );
+			if ( in_array( $source_type, self::TYPES ) )
+			{
+				$settings = $this->settings;
+				if ( !array_key_exists( $source_type, $settings ) )
+				{
+					$settings[ $source_type ] = new UniqueValuesArray([]);
+				}
+				$settings[ $source_type ] = [ $settings[ $source_type ], $function_name ]( $change_item );
+				return new ContentSecurityPolicy( $settings, $this->default_self );
+			}
+			return $this;
+		}
+
+		private function changeMap( array $change_map, callable $function, bool $force_default_self ) : ContentSecurityPolicy
+		{
+			$settings = $this->settings;
+			foreach ( $change_map as $key => $value )
+			{
+				if ( in_array( $key, self::TYPES ) )
+				{
+					if ( !array_key_exists( $key, $settings ) )
+					{
+						$settings[ $key ] = new UniqueValuesArray([]);
+					}
+					$settings[ $key ] = $function( $settings[ $key ], $value );
+				}
+			}
+			return new ContentSecurityPolicy( $settings, $force_default_self );
+		}
+
 		const HEADER_NAME = 'Content-Security-Policy';
 		const TYPES =
 		[
 			'default-src',
 			'script-src',
-			'style-src'
+			'style-src',
+			'img-src',
+			'font-src',
+			'media-src',
+			'object-src',
+			'form-action',
+			'connect-src',
+			'frame-src',
+			'child-src',
+			'worker-src',
+			'manifest-src'
 		];
 
 		private $settings;
+		private $default_self;
 	}
 }

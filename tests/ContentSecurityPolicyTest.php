@@ -8,14 +8,14 @@ class ContentSecurityPolicyTest extends TestCase
 	public function testDefault()
 	{
 		$csp = new ContentSecurityPolicy();
-		$this->assertEquals( $csp->getString( 'default-src' ), "'self'" );
+		$this->assertEquals( $csp->getString( 'default-src' ), "" );
 	}
 
 	public function testEverything()
 	{
 		$csp = new ContentSecurityPolicy( self::ARGUMENTS );
 		$this->assertEquals( "'self' https://www.google.com", $csp->getString( 'default-src' ) );
-		$this->assertEquals( "'self'", $csp->getString( 'style-src' ) );
+		$this->assertEquals( "", $csp->getString( 'style-src' ) );
 		$this->assertEquals( "", $csp->getString( 'not-here' ) );
 	}
 
@@ -40,6 +40,10 @@ class ContentSecurityPolicyTest extends TestCase
 		$this->assertEquals( "'self' https://www.facebook.com https://www.example.com https://www.something.com", $csp->getString( 'default-src' ) );
 		$csp = $csp->removeListToSrc( 'default-src', [ 'https://www.something.com', 'https://www.facebook.com' ] );
 		$this->assertEquals( "'self' https://www.example.com", $csp->getString( 'default-src' ) );
+		$csp = $csp->addItemToSrc( 'style-src', 'https://www.facebook.com' );
+		$this->assertEquals( "'self' https://www.facebook.com", $csp->getString( 'style-src' ) );
+		$csp = $csp->addListToSrc( 'img-src', [ 'https://www.example.com', 'https://www.something.com' ] );
+		$this->assertEquals( "'self' https://www.example.com https://www.something.com", $csp->getString( 'img-src' ) );
 	}
 
 	public function testAddAndRemoveMap()
@@ -56,7 +60,27 @@ class ContentSecurityPolicyTest extends TestCase
 	public function testHeaderString()
 	{
 		$csp = new ContentSecurityPolicy( self::ARGUMENTS );
-		$this->assertEquals( "Content-Security-Policy: default-src 'self' https://www.google.com; script-src 'self' https://www.google.com; style-src 'self'", $csp->getHeaderString() );
+		$this->assertEquals( "Content-Security-Policy: default-src 'self' https://www.google.com; script-src 'self' https://www.google.com", $csp->getHeaderString() );
+	}
+
+	public function testInvalidSrcType()
+	{
+		$csp = new ContentSecurityPolicy( [ 'milktoast' => [ 'suppa' ] ] );
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->addItemToSrc( 'milktoast', 'https://www.facebook.com' );
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->removeItemToSrc( 'milktoast', 'https://www.google.com' );
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->addListToSrc( 'milktoast', [ 'https://www.example.com', 'https://www.something.com', 'https://www.facebook.com' ] );
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->removeListToSrc( 'milktoast', [ 'https://www.something.com', 'https://www.facebook.com' ] );
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->addMap( [ 'default-src' => [ 'https://www.example.com', 'https://www.cool.com' ], 'style-src' => [ 'https://www.example.com' ], 'milktoast' => [ 'alkjdfkjsd' ] ]);
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$csp = $csp->removeMap( [ 'default-src' => [ 'https://www.example.com', 'https://www.google.com' ], 'style-src' => [ "'self'", "https://www.nothing.com" ], 'milktoast' => [ 'alkjdfkjsd' ] ]);
+		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
+		$this->assertNotContains( "milktoast", $csp->getHeaderString() );
+		$this->assertEquals( "Content-Security-Policy: default-src 'self' https://www.cool.com; style-src https://www.example.com", $csp->getHeaderString() );
 	}
 
 	const ARGUMENTS =
