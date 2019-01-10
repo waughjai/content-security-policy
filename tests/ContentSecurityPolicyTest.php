@@ -8,6 +8,8 @@ class ContentSecurityPolicyTest extends TestCase
 	public function testDefault()
 	{
 		$csp = new ContentSecurityPolicy();
+		$this->assertEquals( $csp->getString( 'default-src' ), "'self'" );
+		$csp = new ContentSecurityPolicy( [],false );
 		$this->assertEquals( $csp->getString( 'default-src' ), "" );
 	}
 

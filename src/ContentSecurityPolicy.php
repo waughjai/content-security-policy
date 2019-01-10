@@ -13,6 +13,7 @@ namespace WaughJ\ContentSecurityPolicy
 			$this->default_self = $default_self;
 
 			$default_value = ( $default_self ) ? [ "'self'" ] : [];
+			$this->settings[ 'default-src' ] = new UniqueValuesArray( $default_value );
 			foreach ( $args as $arg_key => $arg_value )
 			{
 				if ( in_array( $arg_key, self::TYPES ) )
