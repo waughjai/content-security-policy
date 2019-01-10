@@ -1,0 +1,25 @@
+{
+    "name": "waughj/content-security-policy",
+    "description": "Class for easy generation o' Content Security Policy header.",
+    "keywords": [ "csp", "content security policy" ],
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Jaimeson Waugh",
+            "email": "waughjai@gmail.com"
+        }
+    ],
+    "type": "library",
+    "require": {
+		"php": ">=7.0",
+		"waughj/unique-values-array": ">=0.1.0"
+    },
+    "require-dev": {
+		"phpunit/phpunit": "6.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "WaughJ\\ContentSecurityPolicy\\": "src/"
+        }
+    }
+}
