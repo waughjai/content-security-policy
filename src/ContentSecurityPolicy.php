@@ -12,14 +12,14 @@ namespace WaughJ\ContentSecurityPolicy
 			$this->settings = [];
 
 			$default_value = ( $default_self ) ? [ "'self'" ] : [];
-			foreach( self::DEFAULTS as $default_key )
+			foreach( self::TYPES as $default_key )
 			{
 				$this->settings[ $default_key ] = new UniqueValuesArray( $default_value );
 			}
 
 			foreach ( $args as $arg_key => $arg_value )
 			{
-				if ( in_array( $arg_key, self::DEFAULTS ) )
+				if ( in_array( $arg_key, self::TYPES ) )
 				{
 					if ( gettype( $arg_value ) === 'string' )
 					{
@@ -132,7 +132,7 @@ namespace WaughJ\ContentSecurityPolicy
 		}
 
 		const HEADER_NAME = 'Content-Security-Policy';
-		const DEFAULTS =
+		const TYPES =
 		[
 			'default-src',
 			'script-src',
