@@ -12,7 +12,9 @@
     "type": "library",
     "require": {
 		"php": ">=7.0",
-		"waughj/unique-values-array": ">=0.1.0"
+		"waughj/unique-values-array": ">=0.1.0",
+		"waughj/verified-arguments": ">=0.6.0",
+		"waughj/verified-arguments-same-type": "*"
     },
     "require-dev": {
 		"phpunit/phpunit": "6.*"

@@ -9,7 +9,7 @@ class ContentSecurityPolicyTest extends TestCase
 	{
 		$csp = new ContentSecurityPolicy();
 		$this->assertEquals( $csp->getString( 'default-src' ), "'self'" );
-		$csp = new ContentSecurityPolicy( [],false );
+		$csp = new ContentSecurityPolicy( [], [ 'auto-self' => false ] );
 		$this->assertEquals( $csp->getString( 'default-src' ), "" );
 	}
 
@@ -83,6 +83,12 @@ class ContentSecurityPolicyTest extends TestCase
 		$this->assertEquals( "", $csp->getString( 'milktoast' ) );
 		$this->assertNotContains( "milktoast", $csp->getHeaderString() );
 		$this->assertEquals( "Content-Security-Policy: default-src 'self' https://www.cool.com; style-src https://www.example.com", $csp->getHeaderString() );
+	}
+
+	public function testReportOnly()
+	{
+		$csp = new ContentSecurityPolicy( self::ARGUMENTS, [ 'report-only' => true ] );
+		$this->assertEquals( "Content-Security-Policy-Report-Only: default-src 'self' https://www.google.com; script-src 'self' https://www.google.com", $csp->getHeaderString() );
 	}
 
 	const ARGUMENTS =

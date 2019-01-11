@@ -4,15 +4,16 @@ declare( strict_types = 1 );
 namespace WaughJ\ContentSecurityPolicy
 {
 	use WaughJ\UniqueValuesArray\UniqueValuesArray;
+	use WaughJ\VerifiedArgumentsSameType\VerifiedArgumentsSameType;
 
 	class ContentSecurityPolicy
 	{
-		public function __construct( array $args = [], bool $default_self = true )
+		public function __construct( array $args = [], array $other_arguments = [] )
 		{
 			$this->settings = [];
-			$this->default_self = $default_self;
+			$this->other_attributes = new VerifiedArgumentsSameType( $other_arguments, self::DEFAULT_ARGUMENTS );
 
-			$default_value = ( $default_self ) ? [ "'self'" ] : [];
+			$default_value = ( $this->other_attributes->get( 'auto-self' ) ) ? [ "'self'" ] : [];
 			$this->settings[ 'default-src' ] = new UniqueValuesArray( $default_value );
 			foreach ( $args as $arg_key => $arg_value )
 			{
@@ -44,7 +45,14 @@ namespace WaughJ\ContentSecurityPolicy
 
 		public function getHeaderString() : string
 		{
-			return self::HEADER_NAME . ": " . $this->getAllHeaderLines();
+			return $this->getHeaderName() . ": " . $this->getAllHeaderLines();
+		}
+
+		public function getHeaderName() : string
+		{
+			return ( $this->other_attributes->get( 'report-only' ) )
+				? 'Content-Security-Policy-Report-Only'
+				: 'Content-Security-Policy';
 		}
 
 		public function getAllHeaderLines() : string
@@ -100,13 +108,13 @@ namespace WaughJ\ContentSecurityPolicy
 				$function = function( UniqueValuesArray $setting, array $value )
 				{
 					$setting = $setting->addList( $value );
-					if ( $this->default_self )
+					if ( $this->other_attributes->get( 'auto-self' ) )
 					{
 						$setting = $setting->add( "'self'" );
 					}
 					return $setting;
 				},
-				$this->default_self
+				$this->other_attributes->get( 'auto-self' )
 			);
 		}
 
@@ -144,7 +152,7 @@ namespace WaughJ\ContentSecurityPolicy
 					$settings[ $source_type ] = new UniqueValuesArray([]);
 				}
 				$settings[ $source_type ] = [ $settings[ $source_type ], $function_name ]( $change_item );
-				return new ContentSecurityPolicy( $settings, $this->default_self );
+				return new ContentSecurityPolicy( $settings, $this->other_attributes->getList() );
 			}
 			return $this;
 		}
@@ -163,7 +171,9 @@ namespace WaughJ\ContentSecurityPolicy
 					$settings[ $key ] = $function( $settings[ $key ], $value );
 				}
 			}
-			return new ContentSecurityPolicy( $settings, $force_default_self );
+			$other_attributes = $this->other_attributes->getList();
+			$other_attributes[ 'auto-self' ] = $force_default_self;
+			return new ContentSecurityPolicy( $settings, $other_attributes );
 		}
 
 		const HEADER_NAME = 'Content-Security-Policy';
@@ -185,6 +195,12 @@ namespace WaughJ\ContentSecurityPolicy
 		];
 
 		private $settings;
-		private $default_self;
+		private $other_attributes;
+
+		const DEFAULT_ARGUMENTS =
+		[
+			'auto-self' => true,
+			'report-only' => false
+		];
 	}
 }
